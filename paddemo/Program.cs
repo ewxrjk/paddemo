@@ -44,6 +44,20 @@ namespace paddemo
             var decrypted_bytes = d.TransformFinalBlock(ciphertext_bytes, 0, ciphertext_bytes.Length);
             var decrypted = System.Text.Encoding.UTF8.GetString(decrypted_bytes);
             Console.WriteLine("Decrypted:          {0}", decrypted);
+            Console.WriteLine("");
+            Console.WriteLine("Attempt to decrypt modified ciphertext...");
+            ciphertext_bytes[ciphertext_bytes.Length - 1]--;
+            d = k.CreateDecryptor();
+            try
+            {
+                decrypted_bytes = d.TransformFinalBlock(ciphertext_bytes, 0, ciphertext_bytes.Length);
+                decrypted = System.Text.Encoding.UTF8.GetString(decrypted_bytes);
+                Console.WriteLine("Decrypted:          {0}", decrypted);
+            }
+            catch (Exception error)
+            {
+                Console.WriteLine("Error:              {0}", error.Message);
+            }
         }
 
         /// <summary>
