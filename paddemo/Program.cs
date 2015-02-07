@@ -15,12 +15,21 @@ namespace paddemo
         /// <summary>
         /// IV
         /// </summary>
-        public byte[] iv;
+        public byte[] iv = null;
 
         /// <summary>
         /// Encrypted bytes
         /// </summary>
-        public byte[] encrypted;
+        public byte[] encrypted = null;
+
+        /// <summary>
+        /// Create an empty ciphertext
+        /// </summary>
+        /// <param name="iv"></param>
+        /// <param name="encrypted"></param>
+        public CipherText()
+        {
+        }
 
         /// <summary>
         /// Create a ciphertext by encrypting a plaintext under a supplied key
@@ -30,8 +39,29 @@ namespace paddemo
         public CipherText(SymmetricAlgorithm k, byte[] plaintext)
         {
             var encryptor = k.CreateEncryptor(); // creates a fresh IV
-            iv = k.IV;
-            encrypted = encryptor.TransformFinalBlock(plaintext, 0, plaintext.Length);
+            this.iv = k.IV;
+            this.encrypted = encryptor.TransformFinalBlock(plaintext, 0, plaintext.Length);
+        }
+
+        /// <summary>
+        /// Test whether the padding of the plaintext is valid
+        /// </summary>
+        /// <param name="k">Encyrption key</param>
+        /// <returns>true if the padding is valid, false otherwise</returns>
+        public bool PaddingOracle(SymmetricAlgorithm k)
+        {
+            k.IV = iv;
+            var decryptor = k.CreateDecryptor();
+            try
+            {
+                decryptor.TransformFinalBlock(encrypted, 0, encrypted.Length);
+                // If decryption succeeded then the padding was correct
+                return true;
+            } catch(System.Security.Cryptography.CryptographicException)
+            {
+                // If the padding wasn't correct then the decryptor raises an exception
+                return false;
+            }
         }
 
     }
@@ -67,24 +97,12 @@ namespace paddemo
             Console.WriteLine("Original plaintext: {0}", plaintext);
             Console.WriteLine("IV:                 {0}", ToHex(ciphertext.iv));
             Console.WriteLine("Ciphertext:         {0}", ToHex(ciphertext.encrypted));
-            var d = k.CreateDecryptor();
-            var decrypted_bytes = d.TransformFinalBlock(ciphertext.encrypted, 0, ciphertext.encrypted.Length);
-            var decrypted = System.Text.Encoding.UTF8.GetString(decrypted_bytes);
-            Console.WriteLine("Decrypted:          {0}", decrypted);
+            Console.WriteLine("Padding oracle:     {0}", ciphertext.PaddingOracle(k));
             Console.WriteLine("");
-            Console.WriteLine("Attempt to decrypt modified ciphertext...");
+            Console.WriteLine("Changing last byte of ciphertext...");
             ciphertext.encrypted[ciphertext.encrypted.Length - 1]--;
-            d = k.CreateDecryptor();
-            try
-            {
-                decrypted_bytes = d.TransformFinalBlock(ciphertext.encrypted, 0, ciphertext.encrypted.Length);
-                decrypted = System.Text.Encoding.UTF8.GetString(decrypted_bytes);
-                Console.WriteLine("Decrypted:          {0}", decrypted);
-            }
-            catch (Exception error)
-            {
-                Console.WriteLine("Error:              {0}", error.Message);
-            }
+            Console.WriteLine("Ciphertext:         {0}", ToHex(ciphertext.encrypted));
+            Console.WriteLine("Padding oracle:     {0}", ciphertext.PaddingOracle(k));
         }
 
         /// <summary>
