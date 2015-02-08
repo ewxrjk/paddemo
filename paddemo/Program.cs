@@ -297,6 +297,7 @@ namespace paddemo {
         public byte[] Decrypt(byte[] iv, byte[] ys) {
             byte[] y = new byte[b];
             byte[] p = new byte[ys.Length];
+            int blocks = 0;
             for (int i = 0; i < ys.Length; i += b) {
                 Array.Copy(ys, i, y, 0, b);
                 var d = BlockDecryptionOracle(y,
@@ -304,9 +305,16 @@ namespace paddemo {
                                               i == 0 ? i : i - b);
                 for (int n = 0; n < b; ++n)
                     p[i + n] = (byte)(d[n] ^ (i == 0 ? iv[n] : ys[i + n - b]));
+                ++blocks;
             }
-            // TODO strip final padding
-            return p;
+            Console.WriteLine("Mean {0} queries/block", queries / blocks);
+            if (p.Length > 0 && p[p.Length - 1] <= b) {
+                byte[] result = new byte[p.Length - p[p.Length - 1]];
+                Array.Copy(p, 0, result, 0, result.Length);
+                return result;
+            }
+            else
+                return p;
         }
 
         /// <summary>
