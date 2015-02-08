@@ -71,15 +71,15 @@ namespace paddemo {
         /// </summary>
         /// <param name="O">Padding oracle to use</param>
         /// <param name="b">Block size of the underlying cipher in bytes</param>
-        public Vaudenay2001(Predicate<byte[]> O, int b) {
-            this.O = O;
+        public Vaudenay2001(Predicate<byte[]> Oracle, int b) {
+            this.Oracle = Oracle;
             this.b = b;
         }
 
         /// <summary>
         /// The padding oracle
         /// </summary>
-        private Predicate<byte[]> O;
+        private Predicate<byte[]> Oracle;
 
         /// <summary>
         /// The block size in bytes
@@ -90,6 +90,21 @@ namespace paddemo {
         /// RNG to use
         /// </summary>
         static private RandomNumberGenerator RNG = new RNGCryptoServiceProvider();
+
+        /// <summary>
+        /// Count of queries to the oracle
+        /// </summary>
+        private int queries = 0;
+
+        /// <summary>
+        /// Query the oracle, counting the number of queries
+        /// </summary>
+        /// <param name="b">Ciphertext</param>
+        /// <returns>true if <paramref name="b"/> decrypts to a well-formed plaintext, else false</returns>
+        private bool O(byte[] b) {
+            ++queries;
+            return Oracle(b);
+        }
 
         /// <summary>
         /// Recover (at least) the last word of plaintext from an encrypted block
@@ -304,10 +319,11 @@ namespace paddemo {
             byte[] mixed = new byte[b];
             for (int i = 0; i < a.Length; ++i)
                 mixed[b - a.Length + i] = (byte)(a[i] ^ prev[offset + b - a.Length + i]);
-            Console.WriteLine("{0}{1} ^ {2} = {3} = {4}",
+            Console.WriteLine("{0,5} {1} ^ {2}{3} = {4} = {5}",
+               queries,
+               Program.ToHex(prev, offset, b),
                new string('?', 2 * (b - a.Length)),
                Program.ToHex(a),
-               Program.ToHex(prev, offset, b),
                Program.ToHex(mixed),
                System.Text.Encoding.UTF8.GetString(mixed));
         }
@@ -353,7 +369,8 @@ namespace paddemo {
             var plaintext_bytes = System.Text.Encoding.UTF8.GetBytes(plaintext);
             var ciphertext = new CipherText(k, plaintext_bytes);
             Console.WriteLine("Plaintext bytes:    {0}", ToHex(plaintext_bytes));
-            Console.WriteLine("Ciphertext:         {0}", ToHex(ciphertext.encrypted)); // TODO remove me
+            Console.WriteLine("IV:                 {0}", ToHex(ciphertext.iv));
+            Console.WriteLine("Ciphertext:         {0}", ToHex(ciphertext.encrypted));
             var attack = new Vaudenay2001((byte[] c) => (new CipherText() { iv = k.IV, encrypted = c }).PaddingOracle(k),
                                           k.BlockSize / 8);
             var decrypted = attack.Decrypt(k.IV, ciphertext.encrypted);
